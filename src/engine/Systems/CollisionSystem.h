@@ -14,9 +14,11 @@ private:
     void CollisionResponse(
         EntityManager& entityManager,
         Entity entityA, Entity entityB,
-        const SDL_FRect& rectA, const SDL_FRect& rectB, const SDL_FRect& overlap
-    );
+        const SDL_FRect& rectA, const SDL_FRect& rectB, const SDL_FRect& overlap,
+        std::vector<Entity>& entitiesToDestroy);
 
+    bool checkAABB(const SDL_FRect& a, const SDL_FRect& b, SDL_FRect& outOverlap);
+    bool hasAABBIntersection(const SDL_FRect& a, const SDL_FRect& b);
 private:
     SDL_Renderer* renderer;
 };

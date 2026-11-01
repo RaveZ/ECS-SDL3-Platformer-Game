@@ -858,7 +858,7 @@ void collisionResponse(const SDLState& state, GameState& gs, Resources& res,
                 }
                 if (!passThrough)
                 {
-                    genericResponse();
+                    genericResponse();a
                     objA.velocity *= 0;
                     objA.data.bullet.state = BulletState::colliding;
                     objA.texture = res.texBulletHit;

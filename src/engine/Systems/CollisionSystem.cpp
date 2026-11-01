@@ -1,6 +1,9 @@
 #include "CollisionSystem.h"
 #include <cmath>
 #include <SDL3/SDL.h>
+#include <vector>
+#include "../Components/TagComponent.h"
+#include "../Components/HealthComponent.h"
 
 void CollisionSystem::update(EntityManager& entityManager, GameState& gs, float deltaTime)
 {
@@ -11,6 +14,8 @@ void CollisionSystem::update(EntityManager& entityManager, GameState& gs, float 
     {
         collider.grounded = false;
     }
+
+    std::vector<Entity> entitiesToDestroy;
 
     for (auto itA = collisionMap.begin(); itA != collisionMap.end(); ++itA)
     {
@@ -29,14 +34,16 @@ void CollisionSystem::update(EntityManager& entityManager, GameState& gs, float 
         };
 
         SDL_FRect sensorA{
-            .x = rectA.x + (rectA.w/4),
+            .x = rectA.x + (rectA.w / 4.0f),
             .y = rectA.y + rectA.h,
-            .w = rectA.w/2,
+            .w = rectA.w / 2.0f,
             .h = 1.0f
         };
 
-        for (auto itB = std::next(itA); itB != collisionMap.end(); ++itB)
+        for (auto itB = collisionMap.begin(); itB != collisionMap.end(); ++itB)
         {
+            if (itA == itB) continue;
+
             Entity entityB = itB->first;
 
             auto transformBIt = transformMap.find(entityB);
@@ -51,26 +58,16 @@ void CollisionSystem::update(EntityManager& entityManager, GameState& gs, float 
                 .h = colliderB.colliderRect.h
             };
 
-            SDL_FRect sensorB{
-                .x = rectB.x + (rectB.w/4),
-                .y = rectB.y + rectB.h,
-                .w = rectB.w/2,
-                .h = 1.0f
-            };
 
-            if (SDL_HasRectIntersectionFloat(&sensorA, &rectB))
+            if (hasAABBIntersection(sensorA, rectB))
             {
                 colliderA.grounded = true;
             }
-            if (SDL_HasRectIntersectionFloat(&sensorB, &rectA))
-            {
-                colliderB.grounded = true;
-            }
 
             SDL_FRect overlap{ 0 };
-            if (SDL_GetRectIntersectionFloat(&rectA, &rectB, &overlap))
+            if (checkAABB(rectA, rectB, overlap))
             {
-                CollisionResponse(entityManager, entityA, entityB, rectA, rectB, overlap);
+                CollisionResponse(entityManager, entityA, entityB, rectA, rectB, overlap, entitiesToDestroy);
             }
         }
 
@@ -91,86 +88,189 @@ void CollisionSystem::update(EntityManager& entityManager, GameState& gs, float 
             };
 
             SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-
             SDL_SetRenderDrawColor(renderer, 255, 0, 0, 150);
             SDL_RenderFillRect(renderer, &rectDebug);
-
             SDL_SetRenderDrawColor(renderer, 0, 255, 0, 255);
             SDL_RenderFillRect(renderer, &sensorDebug);
-
             SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
         }
     }
+
+    for (Entity e : entitiesToDestroy)
+    {
+		auto* tag = entityManager.GetComponent<TagComponent>(e);
+        if(tag && tag->tag == EntityTag::Enemy)
+        {
+			entityManager.RemoveComponent<CollisionComponent>(e);
+            entityManager.RemoveComponent<PhysicsComponent>(e);
+			entityManager.AddComponent(e, LifetimeComponent(3.0f));
+		}
+        else
+        {
+            entityManager.destroyEntity(e);
+        }
+    }
+}
+
+bool CollisionSystem::hasAABBIntersection(const SDL_FRect& a, const SDL_FRect& b)
+{
+    return (a.x < b.x + b.w && a.x + a.w > b.x &&
+        a.y < b.y + b.h && a.y + a.h > b.y);
+}
+
+bool CollisionSystem::checkAABB(const SDL_FRect& a, const SDL_FRect& b, SDL_FRect& outOverlap)
+{
+    // Check for overlap on X axis
+    float overlapX = std::min(a.x + a.w, b.x + b.w) - std::max(a.x, b.x);
+
+    // Check for overlap on Y axis
+    float overlapY = std::min(a.y + a.h, b.y + b.h) - std::max(a.y, b.y);
+
+    if (overlapX <= 0.0f || overlapY <= 0.0f) {
+        return false;
+    }
+
+    outOverlap.x = std::max(a.x, b.x);
+    outOverlap.y = std::max(a.y, b.y);
+    outOverlap.w = overlapX;
+    outOverlap.h = overlapY;
+
+    return true;
 }
 
 void CollisionSystem::CollisionResponse(
     EntityManager& entityManager,
     Entity entityA, Entity entityB,
-    const SDL_FRect& rectA, const SDL_FRect& rectB, const SDL_FRect& overlap)
+    const SDL_FRect& rectA, const SDL_FRect& rectB, const SDL_FRect& overlap,
+    std::vector<Entity>& entitiesToDestroy)
 {
     auto* transformA = entityManager.GetComponent<TransformComponent>(entityA);
-    auto* transformB = entityManager.GetComponent<TransformComponent>(entityB);
     auto* physicsA = entityManager.GetComponent<PhysicsComponent>(entityA);
-    auto* physicsB = entityManager.GetComponent<PhysicsComponent>(entityB);
 
-    if (!physicsA && !physicsB) return;
+    auto* tagA = entityManager.GetComponent<TagComponent>(entityA);
+    auto* tagB = entityManager.GetComponent<TagComponent>(entityB);
 
-    if (overlap.w < overlap.h)
+    const auto genericResponse = [&]()
+        {
+            if (overlap.w < overlap.h)
+            { //horizontal collision
+                if (physicsA)
+                {
+					if (physicsA->velocity.x > 0 && rectA.x < rectB.x) //going right
+                    {
+                        transformA->position.x -= overlap.w;
+                        physicsA->velocity.x = 0;
+                    }
+					else if (physicsA->velocity.x < 0 && rectA.x > rectB.x) // going left
+                    {
+                        transformA->position.x += overlap.w;
+                        physicsA->velocity.x = 0;
+                    }
+                }
+            }
+            else
+            { //vertical collision
+                if (physicsA)
+                {
+					if (physicsA->velocity.y > 0 && rectA.y < rectB.y)//going down
+                    {
+                        transformA->position.y -= overlap.h;
+                        physicsA->velocity.y = 0;
+                    }
+					else if (physicsA->velocity.y < 0 && rectA.y > rectB.y)//going up
+                    {
+                        transformA->position.y += overlap.h;
+                        physicsA->velocity.y = 0;
+                    }
+                }
+            }
+        };
+
+    switch (tagA->tag)
     {
-        if (physicsA)
+    case EntityTag::Player:
+    {
+        switch (tagB->tag)
         {
-            if (physicsA->velocity.x > 0 && rectA.x < rectB.x)
-            {
-                transformA->position.x -= overlap.w;
-                physicsA->velocity.x = 0;
-            }
-            else if (physicsA->velocity.x < 0 && rectA.x > rectB.x)
-            {
-                transformA->position.x += overlap.w;
-                physicsA->velocity.x = 0;
-            }
-        }
-        if (physicsB)
+        case EntityTag::Level:
         {
-            if (physicsB->velocity.x > 0 && rectB.x < rectA.x)
-            {
-                transformB->position.x -= overlap.w;
-                physicsB->velocity.x = 0;
-            }
-            else if (physicsB->velocity.x < 0 && rectB.x > rectA.x)
-            {
-                transformB->position.x += overlap.w;
-                physicsB->velocity.x = 0;
-            }
+            genericResponse();
+            break;
         }
+        case EntityTag::Enemy:
+        {
+            
+            auto* enemyHealth = entityManager.GetComponent<HealthComponent>(entityB);
+            if (enemyHealth && enemyHealth->health > 0)
+            {
+                auto* render = entityManager.GetComponent<RenderComponent>(entityA);
+                if (render) {
+                    render->shouldFlash = true;
+					render->flashTimer = 0.3f;
+                }
+                if (physicsA)
+                {
+                    physicsA->velocity.x = 100.0f * -transformA->direction;
+                }
+            }
+            break;
+        }
+        default:
+        {
+            genericResponse();
+            break;
+        }
+        }
+        break;
     }
-    else
+    case EntityTag::Bullet:
     {
-        if (physicsA)
+        bool passThrough = false;
+        switch (tagB->tag)
         {
-            if (physicsA->velocity.y > 0 && rectA.y < rectB.y)
-            {
-                transformA->position.y -= overlap.h;
-                physicsA->velocity.y = 0;
-            }
-            else if (physicsA->velocity.y < 0 && rectA.y > rectB.y)
-            {
-                transformA->position.y += overlap.h;
-                physicsA->velocity.y = 0;
-            }
-        }
-        if (physicsB)
+        case EntityTag::Enemy:
         {
-            if (physicsB->velocity.y > 0 && rectB.y < rectA.y)
+            auto* enemyHealth = entityManager.GetComponent<HealthComponent>(entityB);
+            if (enemyHealth && enemyHealth->health > 0)
             {
-                transformB->position.y -= overlap.h;
-                physicsB->velocity.y = 0;
+                auto* render = entityManager.GetComponent<RenderComponent>(entityB);
+                if (render) {
+                    render->shouldFlash = true;
+                }
+                enemyHealth->health -= 10;
+                if (enemyHealth->health <= 0)
+                {
+                    entitiesToDestroy.push_back(entityB);
+                }
             }
-            else if (physicsB->velocity.y < 0 && rectB.y > rectA.y)
+            else
             {
-                transformB->position.y += overlap.h;
-                physicsB->velocity.y = 0;
+                passThrough = true;
             }
+            break;
         }
+        }
+
+        if (!passThrough)
+        {
+            genericResponse();
+            if (physicsA)
+            {
+                physicsA->velocity *= 0.0f;
+            }
+            entitiesToDestroy.push_back(entityA);
+        }
+        break;
+    }
+    case EntityTag::Enemy:
+    {
+        genericResponse();
+        break;
+    }
+    default:
+    {
+        genericResponse();
+        break;
+    }
     }
 }

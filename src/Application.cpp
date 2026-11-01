@@ -80,7 +80,8 @@ bool Application::Initialize()
 	collisionSystem = std::make_unique<CollisionSystem>(state.renderer);
 	inputSystem = std::make_unique<InputSystem>();
     animationSystem = std::make_unique<AnimationSystem>();
-
+	animationStateSystem = std::make_unique<AnimationStateSystem>();    
+	lifetimeSystem = std::make_unique<LifetimeSystem>();
     return initSuccess;
 }
 
@@ -175,11 +176,13 @@ void Application::update(float deltaTime)
 
 
     //update systems
-    renderSystem->update(*entityManager, gs, player);
+    renderSystem->update(*entityManager, gs, player, deltaTime);
     movementSystem->update(*entityManager, deltaTime);
 	collisionSystem->update(*entityManager, gs, deltaTime);
 	inputSystem->update(*entityManager, player, res, state.keys, deltaTime);
 	animationSystem->update(*entityManager, deltaTime);
+	animationStateSystem->update(*entityManager, res, deltaTime);
+	lifetimeSystem->update(*entityManager, deltaTime);
 
     //swap buffer and present
     SDL_RenderPresent(state.renderer);
@@ -264,6 +267,7 @@ void Application::createTiles()
 
                         entityManager->AddComponent(e, CollisionComponent(SDL_FRect{ .x = 0, .y = 0, .w = 32, .h = 32 }));
 						entityManager->AddComponent(e, RenderComponent(res.texGround, RenderLayer::LEVEL));
+                        entityManager->AddComponent(e, TagComponent(EntityTag::Level));
                         break;
                     }
                     case 2: //panel
@@ -272,6 +276,8 @@ void Application::createTiles()
                         entityManager->AddComponent(e, TransformComponent(posX, posY));
                         entityManager->AddComponent(e, CollisionComponent(SDL_FRect{ .x = 0, .y = 0, .w = 32, .h = 32 }));
                         entityManager->AddComponent(e, RenderComponent(res.texPanel, RenderLayer::LEVEL));
+
+                        entityManager->AddComponent(e, TagComponent(EntityTag::Level));
                         break;
                     }
                     case 3: //enemy
@@ -293,7 +299,17 @@ void Application::createTiles()
                         entityManager->AddComponent(e, CollisionComponent(SDL_FRect{ .x = 10, .y = 4, .w = 12, .h = 28 }));
 						entityManager->AddComponent(e, RenderComponent(res.texEnemy, RenderLayer::CHARACTER));
 						entityManager->AddComponent(e, PhysicsComponent());
+                        entityManager->AddComponent(e, TagComponent(EntityTag::Enemy));
 
+                        AnimationComponent enemyAnim;
+                        enemyAnim.texture = res.texEnemy;
+                        enemyAnim.frameCount = 8;
+                        enemyAnim.totalDuration = 1.0f;
+                        enemyAnim.isLooping = true;
+
+                        entityManager->AddComponent(e, enemyAnim);
+
+                        entityManager->AddComponent(e, HealthComponent(50, 50));
                         break;
                     }
                     case 4: //player
@@ -313,6 +329,8 @@ void Application::createTiles()
                         playerAnim.isLooping = true;
 
                         entityManager->AddComponent(player, playerAnim);
+						entityManager->AddComponent(player, HealthComponent(100, 100));
+						entityManager->AddComponent(player, TagComponent(EntityTag::Player));
 
                         break;
                     }

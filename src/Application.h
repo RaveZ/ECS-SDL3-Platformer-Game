@@ -9,6 +9,8 @@
 #include "engine/Systems/CollisionSystem.h"
 #include "engine/Systems/InputSystem.h"
 #include "engine/Systems/AnimationSystem.h"
+#include "engine/Systems/AnimationStateSystem.h"
+#include "engine/Systems/LifetimeSystem.h"
 
 #ifndef APPLICATION_H
 #define APPLICATION_H
@@ -45,6 +47,8 @@ private:
 	std::unique_ptr<CollisionSystem> collisionSystem;
 	std::unique_ptr<InputSystem> inputSystem;
 	std::unique_ptr<AnimationSystem> animationSystem;
+	std::unique_ptr<AnimationStateSystem> animationStateSystem;
+	std::unique_ptr<LifetimeSystem> lifetimeSystem;
 };
 
 

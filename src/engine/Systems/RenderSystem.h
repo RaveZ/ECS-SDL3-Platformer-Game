@@ -11,7 +11,7 @@ public:
 	{
 
 	}
-	void update(EntityManager& entityManager, GameState& gs, Entity player);
+	void update(EntityManager& entityManager, GameState& gs, Entity player, float deltaTime);
 
 private:
 	SDL_Renderer* renderer;

@@ -86,5 +86,6 @@ void InputSystem::update(EntityManager& entityManager, Entity player, Resources&
         bulletRender.layer = 1;
         entityManager.AddComponent(Bullet, bulletRender);
 		entityManager.AddComponent(Bullet, LifetimeComponent(3.0f));
+		entityManager.AddComponent(Bullet, TagComponent(EntityTag::Bullet));
     }
 }

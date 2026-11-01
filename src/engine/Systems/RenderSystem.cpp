@@ -2,7 +2,7 @@
 #include <vector>
 #include <map>
 
-void RenderSystem::update(EntityManager& entityManager, GameState& gs, Entity player)
+void RenderSystem::update(EntityManager& entityManager, GameState& gs, Entity player, float deltaTime)
 {
     auto* playerTransform = entityManager.GetComponent<TransformComponent>(player);
 
@@ -55,15 +55,24 @@ void RenderSystem::update(EntityManager& entityManager, GameState& gs, Entity pl
 
             SDL_FlipMode flipMode = (d.transform->direction == -1) ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
 
-            SDL_RenderTextureRotated(
-                renderer,
-                d.render->texture,
-                &finalSrcRect,
-                &d.render->destRect,
-                0.f,
-                nullptr,
-                flipMode
-            );
+            if (d.render->shouldFlash)
+            {
+                SDL_SetTextureColorModFloat(d.render->texture, 2.5f, 1.0f, 1.0f);
+
+                SDL_RenderTextureRotated(renderer, d.render->texture, &finalSrcRect, &d.render->destRect, 0.f, nullptr, flipMode);
+
+                SDL_SetTextureColorModFloat(d.render->texture, 1.0f, 1.0f, 1.0f);
+
+                d.render->flashTimer -= deltaTime;
+                if (d.render->flashTimer <= 0.0f)
+                {
+                    d.render->shouldFlash = false;
+                }
+            }
+            else
+            {
+                SDL_RenderTextureRotated(renderer, d.render->texture, &finalSrcRect, &d.render->destRect, 0.f, nullptr, flipMode);
+            }
         }
     }
 }

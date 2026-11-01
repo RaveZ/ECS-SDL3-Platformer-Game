@@ -14,7 +14,6 @@ void MovementSystem::update(EntityManager& entityManager, float deltaTime)
         if (transformIt == transformMap.end()) continue;
         auto& transform = transformIt->second;
 
-        // Find collision (optional)
         auto collisionIt = collisionMap.find(entity);
         CollisionComponent* collision = (collisionIt != collisionMap.end()) ? &collisionIt->second : nullptr;
 

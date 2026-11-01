@@ -4,9 +4,12 @@ enum class EntityTag {
     Player,
     Enemy,
     Bullet,
-    Wall
+    Level
 };
 
 struct TagComponent {
     EntityTag tag;
+
+    TagComponent() = default;
+	TagComponent(EntityTag tag) : tag(tag) {}
 };
