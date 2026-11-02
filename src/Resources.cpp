@@ -48,7 +48,7 @@ void Resources::load(SDLState& state)
 	texGrass = loadTexture(state.renderer, "data/tiles/grass.png");
 	texGround = loadTexture(state.renderer, "data/tiles/ground.png");
 	texPanel = loadTexture(state.renderer, "data/tiles/panel.png");
-	texBg1 = loadTexture(state.renderer, "data/bg/bg_layer1.png");
+	texBg1 = loadTexture(state.renderer, "data/bg/bg.jpg");
 	texBg2 = loadTexture(state.renderer, "data/bg/bg_layer2.png");
 	texBg3 = loadTexture(state.renderer, "data/bg/bg_layer3.png");
 	texBg4 = loadTexture(state.renderer, "data/bg/bg_layer4.png");
