@@ -1,6 +1,5 @@
 #pragma once
 
-#include "GameObject.h"
 #include "SDL3/SDL.h"
 #include "SDLState.h"
 #include "SDL3_mixer/SDL_mixer.h"
@@ -13,10 +12,6 @@ const size_t LAYER_IDX_CHARACTERS = 1;
 
 struct GameState
 {
-    std::array < std::vector<GameObject>, 2> layers;
-    std::vector<GameObject> backgroundTiles;
-    std::vector<GameObject> foregroundTiles;
-    std::vector<GameObject> bullets;
     int playerIndex;
     SDL_FRect mapViewport;
     float bg2Scroll, bg3Scroll, bg4Scroll;
@@ -38,7 +33,4 @@ struct GameState
         debugMode = false;
     }
 
-    GameObject& player() {
-        return layers[LAYER_IDX_CHARACTERS][playerIndex];
-    }
 };

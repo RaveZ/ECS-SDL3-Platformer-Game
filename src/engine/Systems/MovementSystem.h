@@ -1,10 +1,7 @@
 #pragma once
-#include "../EntityManager.h"
+#include "../ECS.h"
 
-
-class MovementSystem
-{
+class MovementSystem : public System {
 public:
-	void update(EntityManager& entityManager, float deltaTime);
-
+    void Update(float deltaTime);
 };

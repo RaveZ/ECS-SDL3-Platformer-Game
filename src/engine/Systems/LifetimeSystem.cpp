@@ -1,20 +1,18 @@
 #include "LifetimeSystem.h"
+#include "../Components/LifetimeComponent.h"
+#include <vector>
 
-void LifetimeSystem::update(
-    EntityManager& entityManager,
-    float deltaTime
-)
+extern Coordinator gCoordinator;
+
+void LifetimeSystem::Update(float deltaTime)
 {
-    auto& lifetimes = entityManager.GetComponentMap<LifetimeComponent>();
-
-
     std::vector<Entity> entitiesToDestroy;
 
-
-    for (auto& [entity, lifetime] : lifetimes)
+    for (auto const& entity : mEntities)
     {
-        lifetime.TTL -= deltaTime;
+        auto& lifetime = gCoordinator.GetComponent<LifetimeComponent>(entity);
 
+        lifetime.TTL -= deltaTime;
 
         if (lifetime.TTL <= 0.f)
         {
@@ -22,9 +20,8 @@ void LifetimeSystem::update(
         }
     }
 
-
     for (Entity entity : entitiesToDestroy)
     {
-        entityManager.destroyEntity(entity);
+        gCoordinator.DestroyEntity(entity);
     }
 }

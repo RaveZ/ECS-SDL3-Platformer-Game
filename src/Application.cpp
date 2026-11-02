@@ -1,8 +1,12 @@
 #include "application.h"
 #include "engine/Components/CollisionComponent.h"
 #include "engine/Components/RenderComponent.h"
-#include "engine/Components/InputComponent.h"
 #include "engine/Components/TransformComponent.h"
+#include "engine/Components/PhysicsComponent.h"
+#include "engine/Components/AnimationComponent.h"
+#include "engine/Components/HealthComponent.h"
+#include "engine/Components/LifetimeComponent.h"
+#include "engine/Components/TagComponent.h"
 
 
 const int Application::SCREEN_WIDTH = 1200;
@@ -71,17 +75,63 @@ bool Application::Initialize()
         initSuccess = false;
     }
 
-    //setup entity manager
-    entityManager = std::make_unique<EntityManager>();
+   
 
-    //setup systems
-	renderSystem = std::make_unique<RenderSystem>(state.renderer);
-    movementSystem = std::make_unique<MovementSystem>();
-	collisionSystem = std::make_unique<CollisionSystem>(state.renderer);
-	inputSystem = std::make_unique<InputSystem>();
-    animationSystem = std::make_unique<AnimationSystem>();
-	animationStateSystem = std::make_unique<AnimationStateSystem>();    
-	lifetimeSystem = std::make_unique<LifetimeSystem>();
+    gCoordinator.Init();
+
+    
+    //Register Components
+    gCoordinator.RegisterComponent<TransformComponent>();
+    gCoordinator.RegisterComponent<CollisionComponent>();
+    gCoordinator.RegisterComponent<RenderComponent>();
+    gCoordinator.RegisterComponent<PhysicsComponent>();    
+    gCoordinator.RegisterComponent<AnimationComponent>();
+    gCoordinator.RegisterComponent<HealthComponent>();
+    gCoordinator.RegisterComponent<LifetimeComponent>();
+    gCoordinator.RegisterComponent<TagComponent>();
+
+    //Register Systems
+    renderSystem = gCoordinator.RegisterSystem<RenderSystem>();
+    movementSystem = gCoordinator.RegisterSystem<MovementSystem>();
+    collisionSystem = gCoordinator.RegisterSystem<CollisionSystem>();
+    inputSystem = gCoordinator.RegisterSystem<InputSystem>();
+    animationSystem = gCoordinator.RegisterSystem<AnimationSystem>();
+    animationStateSystem = gCoordinator.RegisterSystem<AnimationStateSystem>();
+    lifetimeSystem = gCoordinator.RegisterSystem<LifetimeSystem>();
+
+    Signature renderSig;
+    renderSig.set(gCoordinator.GetComponentType<RenderComponent>());
+    renderSig.set(gCoordinator.GetComponentType<TransformComponent>());
+    gCoordinator.SetSystemSignature<RenderSystem>(renderSig);
+
+    Signature movementSig;
+    movementSig.set(gCoordinator.GetComponentType<PhysicsComponent>());
+    movementSig.set(gCoordinator.GetComponentType<TransformComponent>());
+    gCoordinator.SetSystemSignature<MovementSystem>(movementSig);
+
+    Signature collisionSig;
+    collisionSig.set(gCoordinator.GetComponentType<CollisionComponent>());
+    collisionSig.set(gCoordinator.GetComponentType<TransformComponent>());
+    gCoordinator.SetSystemSignature<CollisionSystem>(collisionSig);
+
+    Signature inputSig;
+    inputSig.set(gCoordinator.GetComponentType<TransformComponent>());
+    inputSig.set(gCoordinator.GetComponentType<PhysicsComponent>());
+    gCoordinator.SetSystemSignature<InputSystem>(inputSig);
+
+    Signature animationSig;
+    animationSig.set(gCoordinator.GetComponentType<AnimationComponent>());
+    gCoordinator.SetSystemSignature<AnimationSystem>(animationSig);
+
+    Signature animStateSig;
+    animStateSig.set(gCoordinator.GetComponentType<AnimationComponent>());
+    animStateSig.set(gCoordinator.GetComponentType<RenderComponent>());
+    animStateSig.set(gCoordinator.GetComponentType<TagComponent>());
+    gCoordinator.SetSystemSignature<AnimationStateSystem>(animStateSig);
+
+    Signature lifetimeSig;
+    lifetimeSig.set(gCoordinator.GetComponentType<LifetimeComponent>());
+    gCoordinator.SetSystemSignature<LifetimeSystem>(lifetimeSig);
     return initSuccess;
 }
 
@@ -176,13 +226,14 @@ void Application::update(float deltaTime)
 
 
     //update systems
-    renderSystem->update(*entityManager, gs, player, deltaTime);
-    movementSystem->update(*entityManager, deltaTime);
-	collisionSystem->update(*entityManager, gs, deltaTime);
-	inputSystem->update(*entityManager, player, res, state.keys, deltaTime);
-	animationSystem->update(*entityManager, deltaTime);
-	animationStateSystem->update(*entityManager, res, deltaTime);
-	lifetimeSystem->update(*entityManager, deltaTime);
+    inputSystem->Update(player, res, state.keys, deltaTime);
+    movementSystem->Update(deltaTime);
+    collisionSystem->Update(gs, state.renderer,deltaTime);
+    animationStateSystem->Update(res, deltaTime);
+    animationSystem->Update(deltaTime);
+    lifetimeSystem->Update(deltaTime);
+
+    renderSystem->Update(gs, player,state.renderer,deltaTime);
 
     //swap buffer and present
     SDL_RenderPresent(state.renderer);
@@ -236,19 +287,6 @@ void Application::createTiles()
 
     const auto loadMap = [this](short layer[MAP_ROWS][MAP_COLS])
         {
-            const auto createObject = [this](int r, int c, SDL_Texture* tex, ObjectType type)
-                {
-                    GameObject o;
-                    o.type = type;
-                    o.position = glm::vec2(c * TILE_SIZE, state.logH - (MAP_ROWS - r) * TILE_SIZE);
-                    o.texture = tex;
-                    o.collider = {
-                        .x = 0, .y = 0,
-                        .w = TILE_SIZE, .h = TILE_SIZE
-                    };
-                    return o;
-                };
-
             for (int r = 0; r < MAP_ROWS; r++)
             {
                 for (int c = 0; c < MAP_COLS; c++)
@@ -259,90 +297,79 @@ void Application::createTiles()
                     {
                     case 1: //ground
                     {
-						Entity e = entityManager->createEntity();
-						entityManager->AddComponent(e, TransformComponent(posX, posY));
-
-                        entityManager->AddComponent(e, CollisionComponent(SDL_FRect{ .x = 0, .y = 0, .w = 32, .h = 32 }));
-						entityManager->AddComponent(e, RenderComponent(res.texGround, RenderLayer::LEVEL));
-                        entityManager->AddComponent(e, TagComponent(EntityTag::Level));
+                        Entity e = gCoordinator.CreateEntity();
+                        gCoordinator.AddComponent(e, TransformComponent(posX, posY));
+                        gCoordinator.AddComponent(e, CollisionComponent(SDL_FRect{ .x = 0, .y = 0, .w = 32, .h = 32 }));
+                        gCoordinator.AddComponent(e, RenderComponent(res.texGround, RenderLayer::LEVEL));
+                        gCoordinator.AddComponent(e, TagComponent(EntityTag::Level));
                         break;
                     }
                     case 2: //panel
                     {
-                        Entity e = entityManager->createEntity();
-                        entityManager->AddComponent(e, TransformComponent(posX, posY));
-                        entityManager->AddComponent(e, CollisionComponent(SDL_FRect{ .x = 0, .y = 0, .w = 32, .h = 32 }));
-                        entityManager->AddComponent(e, RenderComponent(res.texPanel, RenderLayer::LEVEL));
-
-                        entityManager->AddComponent(e, TagComponent(EntityTag::Level));
+                        Entity e = gCoordinator.CreateEntity();
+                        gCoordinator.AddComponent(e, TransformComponent(posX, posY));
+                        gCoordinator.AddComponent(e, CollisionComponent(SDL_FRect{ .x = 0, .y = 0, .w = 32, .h = 32 }));
+                        gCoordinator.AddComponent(e, RenderComponent(res.texPanel, RenderLayer::LEVEL));
+                        gCoordinator.AddComponent(e, TagComponent(EntityTag::Level));
                         break;
                     }
                     case 3: //enemy
                     {
-                        GameObject o = createObject(r, c, res.texEnemy, ObjectType::enemy);
-                        o.data.enemy = EnemyData();
-                        o.currentAnimation = res.ANIM_ENEMY;
-                        o.animations = res.enemyAnims;
-                        o.collider = {
-                            .x = 10, .y = 4,
-                            .w = 12, .h = 28
-                        };
-                        o.maxSpeedX = 15;
-                        o.dynamic = true;
-                        gs.layers[LAYER_IDX_CHARACTERS].push_back(o);
+                        Entity e = gCoordinator.CreateEntity();
 
-                        Entity e = entityManager->createEntity();
-                        entityManager->AddComponent(e, TransformComponent(posX, posY));
-                        entityManager->AddComponent(e, CollisionComponent(SDL_FRect{ .x = 10, .y = 4, .w = 12, .h = 28 }));
-						entityManager->AddComponent(e, RenderComponent(res.texEnemy, RenderLayer::CHARACTER));
-						entityManager->AddComponent(e, PhysicsComponent());
-                        entityManager->AddComponent(e, TagComponent(EntityTag::Enemy));
+                        gCoordinator.AddComponent(e, TransformComponent(posX, posY));
+                        gCoordinator.AddComponent(e, CollisionComponent(SDL_FRect{ .x = 10, .y = 4, .w = 12, .h = 28 }));
+
+                        PhysicsComponent enemyPhysics;
+                        enemyPhysics.maxSpeedX = 15.0f;
+                        enemyPhysics.useGravity = true;
+                        gCoordinator.AddComponent(e, enemyPhysics);
+
+                        gCoordinator.AddComponent(e, RenderComponent(res.texEnemy, RenderLayer::CHARACTER));
+
+                        gCoordinator.AddComponent(e, TagComponent(EntityTag::Enemy));
 
                         AnimationComponent enemyAnim;
                         enemyAnim.texture = res.texEnemy;
                         enemyAnim.frameCount = 8;
                         enemyAnim.totalDuration = 1.0f;
                         enemyAnim.isLooping = true;
+                        gCoordinator.AddComponent(e, enemyAnim);
 
-                        entityManager->AddComponent(e, enemyAnim);
-
-                        entityManager->AddComponent(e, HealthComponent(50, 50));
+                        gCoordinator.AddComponent(e, HealthComponent(50, 50));
                         break;
                     }
                     case 4: //player
                     {
-                        //create our player
-						player = entityManager->createEntity();
-						entityManager->AddComponent(player, InputComponent());
-						entityManager->AddComponent(player, TransformComponent(posX, posY));
-						entityManager->AddComponent(player, RenderComponent(res.texIdle, RenderLayer::CHARACTER));
-						entityManager->AddComponent(player, CollisionComponent(SDL_FRect { .x = 11, .y = 6, .w = 10, .h = 26 }));
-						entityManager->AddComponent(player, PhysicsComponent());
+                        player = gCoordinator.CreateEntity();
+                        gCoordinator.AddComponent(player, TransformComponent(posX, posY));
+                        gCoordinator.AddComponent(player, RenderComponent(res.texIdle, RenderLayer::CHARACTER));
+                        gCoordinator.AddComponent(player, CollisionComponent(SDL_FRect{ .x = 11, .y = 6, .w = 10, .h = 26 }));
+                        gCoordinator.AddComponent(player, PhysicsComponent());
 
                         AnimationComponent playerAnim;
                         playerAnim.texture = res.texIdle;
                         playerAnim.frameCount = 8;
                         playerAnim.totalDuration = 1.6f;
                         playerAnim.isLooping = true;
+                        gCoordinator.AddComponent(player, playerAnim);
 
-                        entityManager->AddComponent(player, playerAnim);
-						entityManager->AddComponent(player, HealthComponent(100, 100));
-						entityManager->AddComponent(player, TagComponent(EntityTag::Player));
-
+                        gCoordinator.AddComponent(player, HealthComponent(100, 100));
+                        gCoordinator.AddComponent(player, TagComponent(EntityTag::Player));
                         break;
                     }
                     case 5: //grass
                     {
-                        Entity e = entityManager->createEntity();
-                        entityManager->AddComponent(e, TransformComponent(posX, posY));
-                        entityManager->AddComponent(e, RenderComponent(res.texGrass, RenderLayer::FOREGROUND));
+                        Entity e = gCoordinator.CreateEntity();
+                        gCoordinator.AddComponent(e, TransformComponent(posX, posY));
+                        gCoordinator.AddComponent(e, RenderComponent(res.texGrass, RenderLayer::FOREGROUND));
                         break;
                     }
                     case 6: //brick
                     {
-                        Entity e = entityManager->createEntity();
-                        entityManager->AddComponent(e, TransformComponent(posX, posY));
-                        entityManager->AddComponent(e, RenderComponent(res.texBrick, RenderLayer::BACKGROUND));
+                        Entity e = gCoordinator.CreateEntity();
+                        gCoordinator.AddComponent(e, TransformComponent(posX, posY));
+                        gCoordinator.AddComponent(e, RenderComponent(res.texBrick, RenderLayer::BACKGROUND));
                         break;
                     }
                     }

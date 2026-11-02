@@ -8,7 +8,6 @@
 #include "engine/SDLState.h"
 
 #include "engine/GameState.h"
-#include "engine/Animation.h"
 
 struct TileSetTextures
 {
@@ -24,22 +23,6 @@ struct Resources
 		return instance;
 	}
 
-	//animations
-	const int ANIM_PLAYER_IDLE = 0;
-	const int ANIM_PLAYER_RUN = 1;
-	const int ANIM_PLAYER_SLIDE = 2;
-	const int ANIM_PLAYER_SHOOT = 3;
-	const int ANIM_PLAYER_SLIDE_SHOOT = 4;
-	std::vector<Animation> playerAnims;
-
-	const int ANIM_BULLET_MOVING = 0;
-	const int ANIM_BULLET_HIT = 1;
-	std::vector<Animation> bulletAnims;
-
-	std::vector<Animation> enemyAnims;
-	const int ANIM_ENEMY = 0;
-	const int ANIM_ENEMY_HIT = 1;
-	const int ANIM_ENEMY_DIE = 2;
 
 	//textures
 	std::vector<SDL_Texture*> textures;

@@ -1,45 +1,59 @@
 #include "MovementSystem.h"
+#include "../Components/PhysicsComponent.h"
+#include "../Components/TransformComponent.h"
+#include "../Components/CollisionComponent.h"
 #include <cmath>
 
-void MovementSystem::update(EntityManager& entityManager, float deltaTime)
+extern Coordinator gCoordinator;
+
+void MovementSystem::Update(float deltaTime)
 {
-    auto& physicsMap = entityManager.GetComponentMap<PhysicsComponent>();
-    auto& transformMap = entityManager.GetComponentMap<TransformComponent>();
-    auto& collisionMap = entityManager.GetComponentMap<CollisionComponent>();
-
-    for (auto& [entity, physics] : physicsMap)
+    for (auto const& entity : mEntities)
     {
-        // Find transform
-        auto transformIt = transformMap.find(entity);
-        if (transformIt == transformMap.end()) continue;
-        auto& transform = transformIt->second;
+        auto& physics = gCoordinator.GetComponent<PhysicsComponent>(entity);
+        auto& transform = gCoordinator.GetComponent<TransformComponent>(entity);
 
-        auto collisionIt = collisionMap.find(entity);
-        CollisionComponent* collision = (collisionIt != collisionMap.end()) ? &collisionIt->second : nullptr;
+        CollisionComponent* collision = nullptr;
+        if (gCoordinator.HasComponent<CollisionComponent>(entity))
+        {
+            collision = &gCoordinator.GetComponent<CollisionComponent>(entity);
+        }
 
-        if (physics.useGravity && (!collision || !collision->grounded)) {
+        // Apply gravity
+        if (physics.useGravity && (!collision || !collision->grounded))
+        {
             physics.velocity.y += 500.0f * deltaTime;
         }
 
+        // Apply acceleration to velocity
         physics.velocity += physics.acceleration * deltaTime;
 
-        if (std::abs(physics.velocity.x) > physics.maxSpeedX) {
+        // Clamp max speed
+        if (std::abs(physics.velocity.x) > physics.maxSpeedX)
+        {
             physics.velocity.x = (physics.velocity.x > 0 ? 1.0f : -1.0f) * physics.maxSpeedX;
         }
 
-        if (collision && collision->grounded && physics.acceleration.x == 0.0f) {
-            if (physics.velocity.x != 0.0f) {
+        // Apply friction
+        if (collision && collision->grounded && physics.acceleration.x == 0.0f)
+        {
+            if (physics.velocity.x != 0.0f)
+            {
                 float frictionFactor = physics.velocity.x > 0 ? -1.5f : 1.5f;
                 float frictionAmount = frictionFactor * 300.0f * deltaTime;
-                if (std::abs(physics.velocity.x) < std::abs(frictionAmount)) {
+
+                if (std::abs(physics.velocity.x) < std::abs(frictionAmount))
+                {
                     physics.velocity.x = 0.0f;
                 }
-                else {
+                else
+                {
                     physics.velocity.x += frictionAmount;
                 }
             }
         }
 
+        // Integrate position
         transform.position += physics.velocity * deltaTime;
         physics.acceleration.x = 0.0f;
     }

@@ -1,19 +1,19 @@
 #include "RenderSystem.h"
+#include "../Components/TransformComponent.h"
+#include "../Components/RenderComponent.h"
+#include "../Components/AnimationComponent.h"
 #include <vector>
 #include <map>
 
-void RenderSystem::update(EntityManager& entityManager, GameState& gs, Entity player, float deltaTime)
+extern Coordinator gCoordinator;
+
+void RenderSystem::Update(GameState& gs, Entity player, SDL_Renderer* renderer, float deltaTime)
 {
-    auto* playerTransform = entityManager.GetComponent<TransformComponent>(player);
-
-    if (playerTransform)
+    if (gCoordinator.HasComponent<TransformComponent>(player))
     {
-        gs.mapViewport.x = (playerTransform->position.x + TILE_SIZE / 2) - gs.mapViewport.w / 2;
+        auto& playerTransform = gCoordinator.GetComponent<TransformComponent>(player);
+        gs.mapViewport.x = (playerTransform.position.x + TILE_SIZE / 2) - gs.mapViewport.w / 2;
     }
-
-    auto& renderComponents = entityManager.GetComponentMap<RenderComponent>();
-    auto& transformComponents = entityManager.GetComponentMap<TransformComponent>();
-    auto& animationComponents = entityManager.GetComponentMap<AnimationComponent>();
 
     struct Drawable {
         RenderComponent* render;
@@ -23,17 +23,20 @@ void RenderSystem::update(EntityManager& entityManager, GameState& gs, Entity pl
 
     std::map<int, std::vector<Drawable>> buckets;
 
-    for (auto& [entity, renderComp] : renderComponents)
+    for (auto const& entity : mEntities)
     {
-        auto transformIt = transformComponents.find(entity);
-        if (transformIt == transformComponents.end()) continue;
+        auto& renderComp = gCoordinator.GetComponent<RenderComponent>(entity);
+        auto& transformComp = gCoordinator.GetComponent<TransformComponent>(entity);
 
         if (renderComp.texture == nullptr) continue;
 
-        auto animIt = animationComponents.find(entity);
-        AnimationComponent* anim = (animIt != animationComponents.end()) ? &animIt->second : nullptr;
+        AnimationComponent* anim = nullptr;
+        if (gCoordinator.HasComponent<AnimationComponent>(entity))
+        {
+            anim = &gCoordinator.GetComponent<AnimationComponent>(entity);
+        }
 
-        buckets[renderComp.layer].push_back({ &renderComp, &transformIt->second, anim });
+        buckets[renderComp.layer].push_back({ &renderComp, &transformComp, anim });
     }
 
     for (auto& [layer, bucket] : buckets)
@@ -44,10 +47,10 @@ void RenderSystem::update(EntityManager& entityManager, GameState& gs, Entity pl
 
             if (d.anim)
             {
-                finalSrcRect.x = d.anim->currentFrame * d.anim->frameWidth;
+                finalSrcRect.x = static_cast<float>(d.anim->currentFrame * d.anim->frameWidth);
                 finalSrcRect.y = 0;
-                finalSrcRect.w = d.anim->frameWidth;
-                finalSrcRect.h = d.anim->frameHeight;
+                finalSrcRect.w = static_cast<float>(d.anim->frameWidth);
+                finalSrcRect.h = static_cast<float>(d.anim->frameHeight);
             }
 
             d.render->destRect.x = d.transform->position.x - gs.mapViewport.x;

@@ -3,7 +3,6 @@
 #include "engine/GameState.h"
 #include "engine/SDLState.h"
 #include "resources.h"
-#include "engine/EntityManager.h"
 #include "engine/Systems/RenderSystem.h"
 #include "engine/Systems/MovementSystem.h"
 #include "engine/Systems/CollisionSystem.h"
@@ -11,6 +10,7 @@
 #include "engine/Systems/AnimationSystem.h"
 #include "engine/Systems/AnimationStateSystem.h"
 #include "engine/Systems/LifetimeSystem.h"
+#include "engine/ECS.h"
 
 #ifndef APPLICATION_H
 #define APPLICATION_H
@@ -40,15 +40,15 @@ private:
     SDLState state;
     Resources res;
     Entity player;
-	
-    std::unique_ptr<EntityManager> entityManager;
-    std::unique_ptr<RenderSystem> renderSystem;
-	std::unique_ptr<MovementSystem> movementSystem;
-	std::unique_ptr<CollisionSystem> collisionSystem;
-	std::unique_ptr<InputSystem> inputSystem;
-	std::unique_ptr<AnimationSystem> animationSystem;
-	std::unique_ptr<AnimationStateSystem> animationStateSystem;
-	std::unique_ptr<LifetimeSystem> lifetimeSystem;
+
+
+    std::shared_ptr<RenderSystem> renderSystem;
+    std::shared_ptr<MovementSystem> movementSystem;
+    std::shared_ptr<CollisionSystem> collisionSystem;
+    std::shared_ptr<InputSystem> inputSystem;
+    std::shared_ptr<AnimationSystem> animationSystem;
+    std::shared_ptr<AnimationStateSystem> animationStateSystem;
+    std::shared_ptr<LifetimeSystem> lifetimeSystem;
 };
 
 

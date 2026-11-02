@@ -1,17 +1,18 @@
 #include "AnimationSystem.h"
+#include "../Components/AnimationComponent.h"
 
-void AnimationSystem::update(EntityManager& entityManager, float deltaTime)
+extern Coordinator gCoordinator;
+
+void AnimationSystem::Update(float deltaTime)
 {
-    auto& animMap = entityManager.GetComponentMap<AnimationComponent>();
-
-    for (auto& [entity, anim] : animMap)
+    for (auto const& entity : mEntities)
     {
+        auto& anim = gCoordinator.GetComponent<AnimationComponent>(entity);
+
         if (anim.frameCount <= 1 || anim.isFinished) continue;
 
-        // Calculate how long ONE frame should last
         float frameDuration = anim.totalDuration / anim.frameCount;
 
-        // Advance the timer
         anim.timer += deltaTime;
 
         if (anim.timer >= frameDuration)
@@ -19,7 +20,6 @@ void AnimationSystem::update(EntityManager& entityManager, float deltaTime)
             anim.timer -= frameDuration;
             anim.currentFrame++;
 
-            // Handle the end of the animation
             if (anim.currentFrame >= anim.frameCount)
             {
                 if (anim.isLooping)

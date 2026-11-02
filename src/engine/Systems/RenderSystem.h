@@ -1,19 +1,12 @@
 #pragma once
 
 #include <SDL3/SDL.h>
-#include "../EntityManager.h"
+#include "../ECS.h"
 #include "../GameState.h"
 
-class RenderSystem
-{
+class RenderSystem : public System {
 public:
-	RenderSystem(SDL_Renderer* inRenderer) : renderer(inRenderer)
-	{
 
-	}
-	void update(EntityManager& entityManager, GameState& gs, Entity player, float deltaTime);
-
-private:
-	SDL_Renderer* renderer;
+    void Update(GameState& gs, Entity player, SDL_Renderer* renderer, float deltaTime);
 
 };

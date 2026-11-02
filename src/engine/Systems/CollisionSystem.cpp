@@ -1,30 +1,32 @@
 #include "CollisionSystem.h"
-#include <cmath>
-#include <SDL3/SDL.h>
-#include <vector>
+#include "../Components/TransformComponent.h"
+#include "../Components/CollisionComponent.h"
+#include "../Components/PhysicsComponent.h"
 #include "../Components/TagComponent.h"
 #include "../Components/HealthComponent.h"
+#include "../Components/RenderComponent.h"
+#include "../Components/LifetimeComponent.h"
+#include <cmath>
+#include <vector>
 
-void CollisionSystem::update(EntityManager& entityManager, GameState& gs, float deltaTime)
+extern Coordinator gCoordinator;
+
+void CollisionSystem::Update(GameState& gs, SDL_Renderer* renderer, float deltaTime)
 {
-    auto& collisionMap = entityManager.GetComponentMap<CollisionComponent>();
-    auto& transformMap = entityManager.GetComponentMap<TransformComponent>();
-
-    for (auto& [entity, collider] : collisionMap)
+    // Reset grounded flags for all entities with a CollisionComponent
+    for (auto const& entity : mEntities)
     {
+        auto& collider = gCoordinator.GetComponent<CollisionComponent>(entity);
         collider.grounded = false;
     }
 
     std::vector<Entity> entitiesToDestroy;
 
-    for (auto itA = collisionMap.begin(); itA != collisionMap.end(); ++itA)
+    // Outer loop (Entity A)
+    for (auto const& entityA : mEntities)
     {
-        Entity entityA = itA->first;
-
-        auto transformAIt = transformMap.find(entityA);
-        if (transformAIt == transformMap.end()) continue;
-        auto& transformA = transformAIt->second;
-        auto& colliderA = itA->second;
+        auto& transformA = gCoordinator.GetComponent<TransformComponent>(entityA);
+        auto& colliderA = gCoordinator.GetComponent<CollisionComponent>(entityA);
 
         SDL_FRect rectA{
            .x = transformA.position.x + colliderA.colliderRect.x,
@@ -40,16 +42,13 @@ void CollisionSystem::update(EntityManager& entityManager, GameState& gs, float 
             .h = 1.0f
         };
 
-        for (auto itB = collisionMap.begin(); itB != collisionMap.end(); ++itB)
+        // Inner loop (Entity B)
+        for (auto const& entityB : mEntities)
         {
-            if (itA == itB) continue;
+            if (entityA == entityB) continue;
 
-            Entity entityB = itB->first;
-
-            auto transformBIt = transformMap.find(entityB);
-            if (transformBIt == transformMap.end()) continue;
-            auto& transformB = transformBIt->second;
-            auto& colliderB = itB->second;
+            auto& transformB = gCoordinator.GetComponent<TransformComponent>(entityB);
+            auto& colliderB = gCoordinator.GetComponent<CollisionComponent>(entityB);
 
             SDL_FRect rectB{
                 .x = transformB.position.x + colliderB.colliderRect.x,
@@ -57,7 +56,6 @@ void CollisionSystem::update(EntityManager& entityManager, GameState& gs, float 
                 .w = colliderB.colliderRect.w,
                 .h = colliderB.colliderRect.h
             };
-
 
             if (hasAABBIntersection(sensorA, rectB))
             {
@@ -67,10 +65,11 @@ void CollisionSystem::update(EntityManager& entityManager, GameState& gs, float 
             SDL_FRect overlap{ 0 };
             if (checkAABB(rectA, rectB, overlap))
             {
-                CollisionResponse(entityManager, entityA, entityB, rectA, rectB, overlap, entitiesToDestroy);
+                CollisionResponse(entityA, entityB, rectA, rectB, overlap, entitiesToDestroy);
             }
         }
 
+        // Debug rendering
         if (gs.debugMode)
         {
             SDL_FRect rectDebug{
@@ -96,19 +95,22 @@ void CollisionSystem::update(EntityManager& entityManager, GameState& gs, float 
         }
     }
 
+    // Process destructions AFTER the loops
     for (Entity e : entitiesToDestroy)
     {
-		auto* tag = entityManager.GetComponent<TagComponent>(e);
-        if(tag && tag->tag == EntityTag::Enemy)
+        if (gCoordinator.HasComponent<TagComponent>(e))
         {
-			entityManager.RemoveComponent<CollisionComponent>(e);
-            entityManager.RemoveComponent<PhysicsComponent>(e);
-			entityManager.AddComponent(e, LifetimeComponent(3.0f));
-		}
-        else
-        {
-            entityManager.destroyEntity(e);
+            auto& tag = gCoordinator.GetComponent<TagComponent>(e);
+            if (tag.tag == EntityTag::Enemy)
+            {
+                gCoordinator.RemoveComponent<CollisionComponent>(e);
+                gCoordinator.RemoveComponent<PhysicsComponent>(e);
+                gCoordinator.AddComponent(e, LifetimeComponent(3.0f));
+                continue;
+            }
         }
+
+        gCoordinator.DestroyEntity(e);
     }
 }
 
@@ -120,10 +122,7 @@ bool CollisionSystem::hasAABBIntersection(const SDL_FRect& a, const SDL_FRect& b
 
 bool CollisionSystem::checkAABB(const SDL_FRect& a, const SDL_FRect& b, SDL_FRect& outOverlap)
 {
-    // Check for overlap on X axis
     float overlapX = std::min(a.x + a.w, b.x + b.w) - std::max(a.x, b.x);
-
-    // Check for overlap on Y axis
     float overlapY = std::min(a.y + a.h, b.y + b.h) - std::max(a.y, b.y);
 
     if (overlapX <= 0.0f || overlapY <= 0.0f) {
@@ -139,113 +138,118 @@ bool CollisionSystem::checkAABB(const SDL_FRect& a, const SDL_FRect& b, SDL_FRec
 }
 
 void CollisionSystem::CollisionResponse(
-    EntityManager& entityManager,
     Entity entityA, Entity entityB,
     const SDL_FRect& rectA, const SDL_FRect& rectB, const SDL_FRect& overlap,
     std::vector<Entity>& entitiesToDestroy)
 {
-    auto* transformA = entityManager.GetComponent<TransformComponent>(entityA);
-    auto* physicsA = entityManager.GetComponent<PhysicsComponent>(entityA);
+    auto& transformA = gCoordinator.GetComponent<TransformComponent>(entityA);
 
-    auto* tagA = entityManager.GetComponent<TagComponent>(entityA);
-    auto* tagB = entityManager.GetComponent<TagComponent>(entityB);
+    PhysicsComponent* physicsA = nullptr;
+    if (gCoordinator.HasComponent<PhysicsComponent>(entityA))
+        physicsA = &gCoordinator.GetComponent<PhysicsComponent>(entityA);
+
+    auto& tagA = gCoordinator.GetComponent<TagComponent>(entityA);
+    auto& tagB = gCoordinator.GetComponent<TagComponent>(entityB);
 
     const auto genericResponse = [&]()
         {
             if (overlap.w < overlap.h)
-            { //horizontal collision
+            {
                 if (physicsA)
                 {
-					if (physicsA->velocity.x > 0 && rectA.x < rectB.x) //going right
+                    if (physicsA->velocity.x > 0 && rectA.x < rectB.x)
                     {
-                        transformA->position.x -= overlap.w;
+                        transformA.position.x -= overlap.w;
                         physicsA->velocity.x = 0;
                     }
-					else if (physicsA->velocity.x < 0 && rectA.x > rectB.x) // going left
+                    else if (physicsA->velocity.x < 0 && rectA.x > rectB.x)
                     {
-                        transformA->position.x += overlap.w;
+                        transformA.position.x += overlap.w;
                         physicsA->velocity.x = 0;
                     }
                 }
             }
             else
-            { //vertical collision
+            {
                 if (physicsA)
                 {
-					if (physicsA->velocity.y > 0 && rectA.y < rectB.y)//going down
+                    if (physicsA->velocity.y > 0 && rectA.y < rectB.y)
                     {
-                        transformA->position.y -= overlap.h;
+                        transformA.position.y -= overlap.h;
                         physicsA->velocity.y = 0;
                     }
-					else if (physicsA->velocity.y < 0 && rectA.y > rectB.y)//going up
+                    else if (physicsA->velocity.y < 0 && rectA.y > rectB.y)
                     {
-                        transformA->position.y += overlap.h;
+                        transformA.position.y += overlap.h;
                         physicsA->velocity.y = 0;
                     }
                 }
             }
         };
 
-    switch (tagA->tag)
+    switch (tagA.tag)
     {
     case EntityTag::Player:
     {
-        switch (tagB->tag)
+        switch (tagB.tag)
         {
         case EntityTag::Level:
-        {
             genericResponse();
             break;
-        }
         case EntityTag::Enemy:
         {
-            
-            auto* enemyHealth = entityManager.GetComponent<HealthComponent>(entityB);
-            if (enemyHealth && enemyHealth->health > 0)
+            if (gCoordinator.HasComponent<HealthComponent>(entityB))
             {
-                auto* render = entityManager.GetComponent<RenderComponent>(entityA);
-                if (render) {
-                    render->shouldFlash = true;
-					render->flashTimer = 0.3f;
-                }
-                if (physicsA)
+                auto& enemyHealth = gCoordinator.GetComponent<HealthComponent>(entityB);
+                if (enemyHealth.health > 0)
                 {
-                    physicsA->velocity.x = 100.0f * -transformA->direction;
+                    if (gCoordinator.HasComponent<RenderComponent>(entityA))
+                    {
+                        auto& render = gCoordinator.GetComponent<RenderComponent>(entityA);
+                        render.shouldFlash = true;
+                        render.flashTimer = 0.3f;
+                    }
+                    if (physicsA)
+                    {
+                        physicsA->velocity.x = 100.0f * -transformA.direction;
+                    }
                 }
             }
             break;
         }
         default:
-        {
             genericResponse();
             break;
-        }
         }
         break;
     }
     case EntityTag::Bullet:
     {
         bool passThrough = false;
-        switch (tagB->tag)
+        switch (tagB.tag)
         {
         case EntityTag::Enemy:
         {
-            auto* enemyHealth = entityManager.GetComponent<HealthComponent>(entityB);
-            if (enemyHealth && enemyHealth->health > 0)
+            if (gCoordinator.HasComponent<HealthComponent>(entityB))
             {
-                auto* render = entityManager.GetComponent<RenderComponent>(entityB);
-                if (render) {
-                    render->shouldFlash = true;
-                }
-                enemyHealth->health -= 10;
-                if (enemyHealth->health <= 0)
+                auto& enemyHealth = gCoordinator.GetComponent<HealthComponent>(entityB);
+                if (enemyHealth.health > 0)
                 {
-                    entitiesToDestroy.push_back(entityB);
+                    if (gCoordinator.HasComponent<RenderComponent>(entityB))
+                    {
+                        auto& render = gCoordinator.GetComponent<RenderComponent>(entityB);
+                        render.shouldFlash = true;
+                    }
+                    enemyHealth.health -= 10;
+                    if (enemyHealth.health <= 0)
+                    {
+                        entitiesToDestroy.push_back(entityB);
+                    }
                 }
-            }
-            else
-            {
-                passThrough = true;
+                else
+                {
+                    passThrough = true;
+                }
             }
             break;
         }
@@ -263,14 +267,10 @@ void CollisionSystem::CollisionResponse(
         break;
     }
     case EntityTag::Enemy:
-    {
         genericResponse();
         break;
-    }
     default:
-    {
         genericResponse();
         break;
-    }
     }
 }

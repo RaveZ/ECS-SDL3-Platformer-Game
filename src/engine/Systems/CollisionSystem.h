@@ -1,24 +1,19 @@
 #pragma once
-#include "../EntityManager.h"
+#include "../ECS.h"
 #include "../GameState.h"
+#include <SDL3/SDL.h>
 
-class CollisionSystem
-{
+class CollisionSystem : public System {
 public:
-    CollisionSystem(SDL_Renderer* inRenderer) : renderer(inRenderer)
-    {
-    }
-    void update(EntityManager& entityManager, GameState& gs, float deltaTime);
 
-private:
+    void Update(GameState& gs, SDL_Renderer* renderer, float deltaTime);
+
+    bool hasAABBIntersection(const SDL_FRect& a, const SDL_FRect& b);
+    bool checkAABB(const SDL_FRect& a, const SDL_FRect& b, SDL_FRect& outOverlap);
+
     void CollisionResponse(
-        EntityManager& entityManager,
         Entity entityA, Entity entityB,
         const SDL_FRect& rectA, const SDL_FRect& rectB, const SDL_FRect& overlap,
         std::vector<Entity>& entitiesToDestroy);
 
-    bool checkAABB(const SDL_FRect& a, const SDL_FRect& b, SDL_FRect& outOverlap);
-    bool hasAABBIntersection(const SDL_FRect& a, const SDL_FRect& b);
-private:
-    SDL_Renderer* renderer;
 };

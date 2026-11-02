@@ -1,8 +1,8 @@
 #pragma once
-#include "../EntityManager.h"
+#include "../ECS.h"
 #include "../../Resources.h"
 
-class AnimationStateSystem {
+class AnimationStateSystem : public System {
 public:
-    void update(EntityManager& entityManager, Resources& res, float deltaTime);
+    void Update(Resources& res, float deltaTime);
 };

@@ -1,9 +1,7 @@
 #pragma once
-#include "../EntityManager.h"
+#include "../ECS.h"
 
-class LifetimeSystem
-{
+class LifetimeSystem : public System {
 public:
-	void update(EntityManager& entityManager, float deltaTime);
-
+    void Update(float deltaTime);
 };

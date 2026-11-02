@@ -24,7 +24,7 @@ MIX_Audio* Resources::loadAudio(MIX_Mixer* mixer, const std::string& filePath)
 void Resources::load(SDLState& state)
 {
 	//load animations
-	playerAnims.resize(5);
+	/*playerAnims.resize(5);
 	playerAnims[ANIM_PLAYER_IDLE] = Animation(8, 1.6f);
 	playerAnims[ANIM_PLAYER_RUN] = Animation(4, 0.5f);
 	playerAnims[ANIM_PLAYER_SLIDE] = Animation(1, 1.0f);
@@ -38,7 +38,7 @@ void Resources::load(SDLState& state)
 	enemyAnims.resize(3);
 	enemyAnims[ANIM_ENEMY] = Animation(8, 1.0f);
 	enemyAnims[ANIM_ENEMY_HIT] = Animation(8, 1.f);
-	enemyAnims[ANIM_ENEMY_DIE] = Animation(18, 2.0f);
+	enemyAnims[ANIM_ENEMY_DIE] = Animation(18, 2.0f);*/
 
 	//load textures
 	texIdle = loadTexture(state.renderer, "data/idle.png");
