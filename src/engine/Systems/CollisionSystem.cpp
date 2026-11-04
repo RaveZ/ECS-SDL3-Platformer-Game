@@ -6,6 +6,7 @@
 #include "../Components/HealthComponent.h"
 #include "../Components/RenderComponent.h"
 #include "../Components/LifetimeComponent.h"
+#include "../MathUtils.h"
 #include <cmath>
 #include <vector>
 
@@ -57,13 +58,13 @@ void CollisionSystem::Update(GameState& gs, SDL_Renderer* renderer, float deltaT
                 .h = colliderB.colliderRect.h
             };
 
-            if (hasAABBIntersection(sensorA, rectB))
+            if (HasAABBIntersection(sensorA, rectB))
             {
                 colliderA.grounded = true;
             }
 
             SDL_FRect overlap{ 0 };
-            if (checkAABB(rectA, rectB, overlap))
+            if (CheckAABB(rectA, rectB, overlap))
             {
                 CollisionResponse(entityA, entityB, rectA, rectB, overlap, entitiesToDestroy);
             }
@@ -112,29 +113,6 @@ void CollisionSystem::Update(GameState& gs, SDL_Renderer* renderer, float deltaT
 
         gCoordinator.DestroyEntity(e);
     }
-}
-
-bool CollisionSystem::hasAABBIntersection(const SDL_FRect& a, const SDL_FRect& b)
-{
-    return (a.x < b.x + b.w && a.x + a.w > b.x &&
-        a.y < b.y + b.h && a.y + a.h > b.y);
-}
-
-bool CollisionSystem::checkAABB(const SDL_FRect& a, const SDL_FRect& b, SDL_FRect& outOverlap)
-{
-    float overlapX = std::min(a.x + a.w, b.x + b.w) - std::max(a.x, b.x);
-    float overlapY = std::min(a.y + a.h, b.y + b.h) - std::max(a.y, b.y);
-
-    if (overlapX <= 0.0f || overlapY <= 0.0f) {
-        return false;
-    }
-
-    outOverlap.x = std::max(a.x, b.x);
-    outOverlap.y = std::max(a.y, b.y);
-    outOverlap.w = overlapX;
-    outOverlap.h = overlapY;
-
-    return true;
 }
 
 void CollisionSystem::CollisionResponse(

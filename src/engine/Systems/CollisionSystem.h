@@ -8,8 +8,6 @@ public:
 
     void Update(GameState& gs, SDL_Renderer* renderer, float deltaTime);
 
-    bool hasAABBIntersection(const SDL_FRect& a, const SDL_FRect& b);
-    bool checkAABB(const SDL_FRect& a, const SDL_FRect& b, SDL_FRect& outOverlap);
 
     void CollisionResponse(
         Entity entityA, Entity entityB,

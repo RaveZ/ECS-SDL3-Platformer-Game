@@ -11,6 +11,7 @@
 #include "engine/Systems/AnimationStateSystem.h"
 #include "engine/Systems/LifetimeSystem.h"
 #include "engine/ECS.h"
+#include "engine/Systems/EnemyAISystem.h"
 
 #ifndef APPLICATION_H
 #define APPLICATION_H
@@ -49,6 +50,8 @@ private:
     std::shared_ptr<AnimationSystem> animationSystem;
     std::shared_ptr<AnimationStateSystem> animationStateSystem;
     std::shared_ptr<LifetimeSystem> lifetimeSystem;
+
+    std::shared_ptr<EnemyAISystem> enemyAISystem;
 };
 
 
