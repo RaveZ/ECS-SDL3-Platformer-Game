@@ -45,6 +45,18 @@ target_include_directories(ECS_Tests PRIVATE "src/engine/")
 target_include_directories(ECS_Tests PRIVATE "ext/")
 target_include_directories(ECS_Tests PRIVATE "ext/glm/")
 
+# Copy SDL DLLs to the executable directory after building
+if(WIN32)
+    add_custom_command(TARGET SDL_Game POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "C:/ALPHA/SDL/SDKs/SDL3-3.4.14/lib/x64/SDL3.dll"
+            "C:/ALPHA/SDL/SDKs/SDL3_image-3.4.6/lib/x64/SDL3_image.dll"
+            "C:/ALPHA/SDL/SDKs/SDL3_mixer-3.2.4/lib/x64/SDL3_mixer.dll"
+            $<TARGET_FILE_DIR:SDL_Game>
+        COMMENT "Copying SDL DLLs to output directory"
+    )
+endif()
+
 # --- Asset handling ---
 add_custom_command(TARGET SDL_Game POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
